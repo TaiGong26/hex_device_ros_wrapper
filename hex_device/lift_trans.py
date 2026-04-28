@@ -82,7 +82,6 @@ class ClassLinearLiftApi:
     def _publish_motor_states(self):
         try:
             position_status =None
-            last_time = Timestamp.from_ns(int(time.perf_counter_ns()))
             msg = None
             
             if self.Lift is not None :
@@ -90,7 +89,7 @@ class ClassLinearLiftApi:
                     position_status = self.Lift.get_motor_positions()
                     velocity_status = self.Lift.get_move_speed() / self.Lift._pulse_per_rotation
                     msg = JointState()
-                    msg.header.stamp = self.ros_interface.get_timestamp_from_s_ns(last_time.s,last_time.ns)
+                    msg.header.stamp = self.ros_interface.get_timestamp()
                     msg.name = [f"joint1"]
                     msg.position = [position_status]
                     msg.velocity = [velocity_status]
