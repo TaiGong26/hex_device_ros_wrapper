@@ -33,22 +33,33 @@ def generate_launch_description():
         description="Is KCP mode"
     )
     
+    enable_ros_clock = DeclareLaunchArgument(
+        "enable_ros_clock",
+        default_value=True,
+        description="Default to ROS clock source; use device internal clock if false."
+    )
+    
     # =========== launch ==============
     
-    bridge_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('hex_bridge'),
-                'launch',
-                'bridge.launch.py'
-            )
-        ),
-        launch_arguments={
+    # Define the node
+    hex_bridge_node = Node(
+        package='hex_bridge',
+        executable='hex_bridge',
+        name='hex_bridge',
+        output='screen',
+        emulate_tty=True,
+        condition=IfCondition(LaunchConfiguration('enable_bridge')),
+        parameters=[{
             'url': LaunchConfiguration('url'),
             'read_only': LaunchConfiguration('read_only'),
-            'is_kcp': LaunchConfiguration('is_kcp'),
-        }.items(),
-        condition=IfCondition(LaunchConfiguration('enable_bridge'))
+            "is_kcp": LaunchConfiguration("is_kcp"),
+        }],
+        remappings=[
+            # subscribe
+            ('/ws_down', '/ws_down'),
+            # publish
+            ('/ws_up', '/ws_up')
+        ]
     )
     
     # ============= node =============== 
@@ -56,6 +67,9 @@ def generate_launch_description():
         package='hex_device',
         executable='lift_trans',
         name='lift_trans',
+        parameters=[{
+            'enable_ros_clock': LaunchConfiguration('enable_ros_clock'),
+        }],
         remappings=[
             # subscribe
             ('/xtopic_lift/joint_cmd', '/joint_cmd'),
@@ -71,7 +85,7 @@ def generate_launch_description():
         read_only,
         is_kcp,
         # launch
-        bridge_launch,
+        hex_bridge_node,
         # node
         lift_node
     ])

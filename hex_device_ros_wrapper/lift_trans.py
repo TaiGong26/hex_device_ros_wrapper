@@ -26,11 +26,10 @@ class HexLiftApi:
         # Timeout check every 10Hz
         self._watchdog_check_every = max(1, int(0.1 * self.ros_interface.get_rate()))
         self._watchdog_counter = 0
+        self._last_lift_timeout_log = 0.0
 
         # 2. Get parameters
-        self.frame_id = self.ros_interface.get_parameter('frame_id')
-        self._cmd_vel_timeout = float(self.ros_interface.get_parameter('cmd_vel_timeout') or 0.5)
-        self._last_cmd_vel_time = 0.0  # 0 = never received, then use timeout to stop
+        self.enable_ros_clock = self.ros_interface.get_parameter('enable_ros_clock')
 
         self.version_check = False
         self.first_time = True
@@ -64,17 +63,16 @@ class HexLiftApi:
         except Exception:
             self.ros_interface.logw("Failed to parse ws_up message")
             return
-        # # 目前底盘暂不需要进行版本检查
-        # if not self.version_check:
-        #     self.version_check = True
-        #     if not self.api._is_support_version(api_up):
-        #         self.ros_interface.loge("Version mismatch, API closed")
-        #         self.api.close()
-        #         self.ros_interface.shutdown()
-        #         return
+        
+        if not self.version_check:
+            self.version_check = True
+            if not self.api._is_support_version(api_up):
+                self.ros_interface.loge("Version mismatch, API closed")
+                self.api.close()
+                self.ros_interface.shutdown()
+                return
         self.api._process_api_up(api_up)
 
-    
     def _setup_topics(self):
         self.joint_cmd_sub = self.ros_interface.create_subscription(
                 '/xtopic_lift/joint_cmd', JointState, self._joint_cmd_callback, 10)
@@ -82,9 +80,7 @@ class HexLiftApi:
     def _joint_cmd_callback(self, msg):
         lift = self._get_lift()
         if lift is not None:
-            lift.start()
             lift.motor_command(CommandType.POSITION, msg.position)
-    
     
     def _get_Lift(self):
         if self.lift is None:
@@ -94,6 +90,16 @@ class HexLiftApi:
                     return self.lift
         return self.lift
     
+    def _get_clock_timestamp(self):
+        _timestamp = None
+
+        if self.enable_ros_clock == True:
+            _timestamp = self.ros_interface.get_timestamp()
+        else:
+            _timestamp = self.ros_interface.get_timestamp_from_s_ns(self.lift._last_update_time.s, self.lift._last_update_time.ns)
+        
+        return _timestamp
+    
     def _publish_motor_states(self, lift):
         if self.motor_states_pub is None:
             return
@@ -101,7 +107,7 @@ class HexLiftApi:
         if motor_status is None:
             return
         msg = JointState()
-        msg.header.stamp = self.ros_interface.get_timestamp_from_s_ns(motor_status['ts']['s'], motor_status['ts']['ns'])
+        msg.header.stamp = self._get_clock_timestamp()
         msg.name = [f"joint{i}" for i in range(len(motor_status['pos']))]
         msg.position = motor_status['pos'].tolist()
         msg.velocity = motor_status['vel'].tolist()
@@ -134,9 +140,11 @@ def main():
                         if hex_Lift_api.first_time:
                             hex_Lift_api.first_time = False
                             hex_Lift_api._setup_topics()
+                            device.start()
                             hex_Lift_api.ros_interface.logi("Lift initialized successfully")
 
                         hex_Lift_api._publish_motor_states(device)
+                        
                     hex_Lift_api._watchdog_counter += 1
                     if hex_Lift_api._watchdog_counter >= hex_Lift_api._watchdog_check_every:
                         hex_Lift_api._watchdog_counter = 0

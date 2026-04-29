@@ -44,6 +44,11 @@ Open a new terminal and run:
 ros2 run hex_device_ros_wrapper chassis_key_control
 ```
 
+If lift:
+```
+ros2 launch hex_device_ros_wrapper lift_bringup.launch.py
+```
+
 ## Supported Devices
 
 ### 1. Arm
@@ -132,5 +137,26 @@ You can remap topics as needed in the launch file.
 | ------------- | ------ | ----------- | --------------------------------------------- |
 | `frame_id`    | string | "base_link" | TF frame ID for odometry child frame          |
 | `simple_mode` | bool   | true        | Simple mode (cmd_vel) vs advanced (joint_cmd) |
+
+---
+
+
+### 3. Lift
+Provides interface for hex mobile chassis with odometry support.  
+You can remap topics as needed in the launch file.
+
+#### Published Topics
+| Topic           | Msg Type                   | Description                 |
+| --------------- | -------------------------- | --------------------------- |
+| `/ws_down`      | `std_msgs/UInt8MultiArray` | Protobuf messages to device |
+| `/motor_states` | `sensor_msgs/JointState`   | Lift motor states        |
+
+
+#### Subscribed Topics
+| Topic        | Msg Type                   | Description                      |
+| ------------ | -------------------------- | -------------------------------- |
+| `/ws_up`     | `std_msgs/UInt8MultiArray` | Protobuf messages from device    |
+| `/joint_cmd` | `sensor_msgs/JointState`   | Joint commands (advanced mode)   |
+
 
 ---
