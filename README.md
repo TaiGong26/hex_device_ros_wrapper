@@ -24,7 +24,7 @@ cd ~/hex_ws
 colcon build
 source install/setup.bash
 ```
-### 6. Usage
+### 4. Usage
 Open a new terminal and run:
 ```bash
 ros2 launch hex_bridge hex_bridge.launch.py url:={YOUR_IP}:8439
@@ -53,6 +53,16 @@ Open a new terminal and run:
 
 ```
 ros2 topic pub /joint_cmd sensor_msgs/msg/JointState "{header: {}, name: ['joint1'], position: [0.3], velocity: [], effort: []}" --once
+```
+
+### 5.Parameter
+**Clock Source Configuration**
+
+You can use the `enable_ros_clock` parameter to decide whether to use the ROS clock as the message timestamp.
+If the parameter is not assigned, ROS clock is used by default.
+If set to `false`, the device controller internal clock source will be adopted for message timestamp.
+```
+ros2 launch hex_device_ros_wrapper lift_bringup.launch.py enable_ros_clock:=true
 ```
 
 ## Supported Devices
