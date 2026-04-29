@@ -11,11 +11,9 @@ sys.path.append(script_path)
 
 from ros_interface import DataInterface
 from hex_device import HexDeviceApi, public_api_up_pb2, LinearLift
-from hex_device.motor_base import CommandType
+from hex_device import CommandType
 
-from geometry_msgs.msg import Twist
 from sensor_msgs.msg import JointState
-from nav_msgs.msg import Odometry
 from std_msgs.msg import UInt8MultiArray, Bool
 
 class HexLiftApi:
@@ -29,6 +27,7 @@ class HexLiftApi:
         self._last_lift_timeout_log = 0.0
 
         # 2. Get parameters
+        self.ros_interface.set_parameter('enable_ros_clock', True)
         self.enable_ros_clock = self.ros_interface.get_parameter('enable_ros_clock')
 
         self.version_check = False
@@ -73,15 +72,22 @@ class HexLiftApi:
                 return
         self.api._process_api_up(api_up)
 
+    # ========== lift topic setup ==========
+
     def _setup_topics(self):
+        self.motor_states_pub = self.ros_interface.create_publisher(
+            '/xtopic_lift/motor_states', JointState, 10)
+
         self.joint_cmd_sub = self.ros_interface.create_subscription(
                 '/xtopic_lift/joint_cmd', JointState, self._joint_cmd_callback, 10)
+        
+    # ========== lift topic callbacks ==========
     
     def _joint_cmd_callback(self, msg):
-        lift = self._get_lift()
+        lift = self._get_Lift()
         if lift is not None:
-            lift.motor_command(CommandType.POSITION, msg.position)
-    
+            lift.motor_command(CommandType.POSITION, msg.position[0])
+        
     def _get_Lift(self):
         if self.lift is None:
             for device in self.api.device_list:
@@ -89,39 +95,36 @@ class HexLiftApi:
                     self.lift = device
                     return self.lift
         return self.lift
-    
-    def _get_clock_timestamp(self):
-        _timestamp = None
 
-        if self.enable_ros_clock == True:
-            _timestamp = self.ros_interface.get_timestamp()
-        else:
-            _timestamp = self.ros_interface.get_timestamp_from_s_ns(self.lift._last_update_time.s, self.lift._last_update_time.ns)
-        
-        return _timestamp
-    
     def _publish_motor_states(self, lift):
         if self.motor_states_pub is None:
             return
-        motor_status = lift.get_motor_positions()
-        if motor_status is None:
+        timestamp = self._get_clock_timestamp()
+        position_status = lift.get_motor_positions()
+        velocity_status = lift.get_move_speed() / lift._pulse_per_rotation
+        if position_status is None:
             return
         msg = JointState()
-        msg.header.stamp = self._get_clock_timestamp()
-        msg.name = [f"joint{i}" for i in range(len(motor_status['pos']))]
-        msg.position = motor_status['pos'].tolist()
-        msg.velocity = motor_status['vel'].tolist()
-        msg.effort = motor_status['eff'].tolist()
+        msg.header.stamp = timestamp
+        msg.name = [f"joint1"]
+        msg.position = [position_status]
+        msg.velocity = [velocity_status]
+        msg.effort = [0.0]
         self.ros_interface.publish(self.motor_states_pub, msg)
         
-    def _check_cmd_timeout(self, lift):
-        """When no cmd_vel for timeout seconds, stop lift (watchdog)."""
-        if lift.is_timeout():
-            now = time.monotonic()
-            if now - self._last_lift_timeout_log >= 5.0:
-                self._last_lift_timeout_log = now
-                self.ros_interface.logw("lift command timeout, stopping lift...")
-            lift.stop()
+    # ========== tool ==========
+        
+    def _get_clock_timestamp(self):
+        _timestamp = None
+        
+        device = self._get_Lift()
+
+        if self.enable_ros_clock == True:
+            _timestamp = self.ros_interface.get_timestamp()
+        elif self.enable_ros_clock == False:
+            _timestamp = self.ros_interface.get_timestamp_from_s_ns(device._last_update_time.s, device._last_update_time.ns)
+        
+        return _timestamp
 
 # ========== Main Function ==========
 
@@ -144,11 +147,6 @@ def main():
                             hex_Lift_api.ros_interface.logi("Lift initialized successfully")
 
                         hex_Lift_api._publish_motor_states(device)
-                        
-                    hex_Lift_api._watchdog_counter += 1
-                    if hex_Lift_api._watchdog_counter >= hex_Lift_api._watchdog_check_every:
-                        hex_Lift_api._watchdog_counter = 0
-                        hex_Lift_api._check_cmd_timeout(device)
 
             hex_Lift_api.ros_interface.sleep()
 

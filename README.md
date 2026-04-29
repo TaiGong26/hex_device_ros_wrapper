@@ -48,6 +48,12 @@ If lift:
 ```
 ros2 launch hex_device_ros_wrapper lift_bringup.launch.py
 ```
+For Lift, you can also run following commands to control Lift with simple pos command:
+Open a new terminal and run:
+
+```
+ros2 topic pub /joint_cmd sensor_msgs/msg/JointState "{header: {}, name: ['joint1'], position: [0.3], velocity: [], effort: []}" --once
+```
 
 ## Supported Devices
 
@@ -142,21 +148,20 @@ You can remap topics as needed in the launch file.
 
 
 ### 3. Lift
-Provides interface for hex mobile chassis with odometry support.  
-You can remap topics as needed in the launch file.
+Provides interface for hex Lift support.Only the RtIotaVc2 is supported now.
 
 #### Published Topics
 | Topic           | Msg Type                   | Description                 |
 | --------------- | -------------------------- | --------------------------- |
 | `/ws_down`      | `std_msgs/UInt8MultiArray` | Protobuf messages to device |
-| `/motor_states` | `sensor_msgs/JointState`   | Lift motor states        |
+| `/motor_states` | `sensor_msgs/JointState`   | Lift motor states (Only support position control) |
 
 
 #### Subscribed Topics
 | Topic        | Msg Type                   | Description                      |
 | ------------ | -------------------------- | -------------------------------- |
-| `/ws_up`     | `std_msgs/UInt8MultiArray` | Protobuf messages from device    |
-| `/joint_cmd` | `sensor_msgs/JointState`   | Joint commands (advanced mode)   |
+| `/ws_up`     | `std_msgs/UInt8MultiArray` | Protobuf messages from device   |
+| `/joint_cmd` | `sensor_msgs/JointState`   | Joint commands (Velocity represents the maximum movement speed. )|
 
 
 ---

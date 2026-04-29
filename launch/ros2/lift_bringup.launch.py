@@ -35,7 +35,7 @@ def generate_launch_description():
     
     enable_ros_clock = DeclareLaunchArgument(
         "enable_ros_clock",
-        default_value=True,
+        default_value='true',
         description="Default to ROS clock source; use device internal clock if false."
     )
     
@@ -64,7 +64,7 @@ def generate_launch_description():
     
     # ============= node =============== 
     lift_node = Node(
-        package='hex_device',
+        package='hex_device_ros_wrapper',
         executable='lift_trans',
         name='lift_trans',
         parameters=[{
@@ -84,6 +84,7 @@ def generate_launch_description():
         url,
         read_only,
         is_kcp,
+        enable_ros_clock,
         # launch
         hex_bridge_node,
         # node
